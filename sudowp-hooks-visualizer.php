@@ -13,22 +13,42 @@
  * Based on "Simply Show Hooks" by Stuart O'Brien & cxThemes.
  */
 
-// SudoWP Modernization: Enforce Strict Types
 declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
 class SudoWP_Hooks_Visualizer {
 
-	/**
-	 * SudoWP Modernization: Typed Properties (PHP 7.4+)
-	 */
+    /**
+     * @var string
+     */
 	private string $status = 'off';
+
+    /**
+     * @var array
+     */
 	private array $all_hooks = array();
+
+    /**
+     * @var array
+     */
 	private array $recent_hooks = array();
+
+    /**
+     * @var array
+     */
 	private array $ignore_hooks = array();
+
+    /**
+     * @var string
+     */
 	private string $doing = 'collect';
 
+    /**
+     * Singleton instance
+     *
+     * @return self
+     */
 	public static function get_instance(): self {
 		static $instance = null;
 		if ( null === $instance ) {
@@ -40,6 +60,9 @@ class SudoWP_Hooks_Visualizer {
 
 	public function __construct() {}
 
+    /**
+     * Initialize the plugin
+     */
 	public function init(): void {
 		// Allow developers to ignore noisy hooks via filter
 		$this->ignore_hooks = (array) apply_filters( 'sudowp_hooks_ignore', array(
@@ -64,7 +87,8 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	/**
-	 * Security Fix: Sanitize inputs from Cookies and Requests
+	 * Securely retrieve status from Request or Cookies with sanitation
+     * Implements SameSite cookie attributes for security.
 	 */
 	public function set_active_status(): void {
 		$cookie_name = 'sudowp_hooks_status';
@@ -76,14 +100,14 @@ class SudoWP_Hooks_Visualizer {
 			// Only allow specific values
 			if ( in_array( $status_val, array( 'off', 'show-action-hooks', 'show-filter-hooks' ), true ) ) {
 				
-				// SudoWP Modernization: Use modern setcookie signature (PHP 7.3+) for SameSite support
+				// Modern setcookie signature (PHP 7.3+) for SameSite support
 				setcookie( $cookie_name, $status_val, array(
 					'expires'  => time() + 3600 * 24 * 30,
 					'path'     => '/',
 					'domain'   => COOKIE_DOMAIN,
 					'secure'   => is_ssl(),
 					'httponly' => true,
-					'samesite' => 'Lax', // Security enhancement
+					'samesite' => 'Lax',
 				) );
 
 				$this->status = $status_val;
@@ -211,7 +235,6 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function enqueue_script(): void {
-		// Updated paths to match SudoWP naming convention
 		wp_register_style( 'sudowp-hooks-css', plugins_url( 'assets/css/sudowp-hooks-main.css', __FILE__ ), array(), '1.3.1', 'screen' );
 		wp_enqueue_style( 'sudowp-hooks-css' );
 	}
@@ -362,7 +385,7 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function plugin_active(): bool {
-		// SudoWP Filters to programmatically disable hooks if needed
+		// Filters to programmatically disable hooks if needed
 		if ( ! apply_filters( 'sudowp_hooks_active', true ) ) {
 			return false;
 		}
