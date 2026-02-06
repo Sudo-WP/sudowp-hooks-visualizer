@@ -3,7 +3,7 @@
  * Plugin Name: SudoWP Hooks Visualizer
  * Plugin URI:  https://sudowp.com
  * Description: A secure, developer-focused tool to visualize WordPress Action and Filter hooks in real-time. Maintained by SudoWP.
- * Version:     1.3.1
+ * Version:     1.3.2
  * Author:      SudoWP
  * Author URI:  https://sudowp.com
  * License:     GPLv2 or later
@@ -15,7 +15,10 @@
 
 declare(strict_types=1);
 
-defined( 'ABSPATH' ) || exit;
+// Prevent direct file access
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 
 class SudoWP_Hooks_Visualizer {
 
@@ -89,22 +92,37 @@ class SudoWP_Hooks_Visualizer {
 	/**
 	 * Securely retrieve status from Request or Cookies with sanitation
      * Implements SameSite cookie attributes for security.
+     * Includes CSRF protection via nonce verification.
 	 */
 	public function set_active_status(): void {
 		$cookie_name = 'sudowp_hooks_status';
 
 		// Check Request (GET/POST) first
 		if ( isset( $_REQUEST['sudowp-hooks'] ) ) {
+			// CSRF Protection: Verify nonce if changing status
+			if ( ! isset( $_REQUEST['sudowp-hooks-nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['sudowp-hooks-nonce'] ) ), 'sudowp_hooks_toggle' ) ) {
+				// Invalid nonce - don't change status
+				if ( isset( $_COOKIE[ $cookie_name ] ) ) {
+					$this->status = sanitize_key( $_COOKIE[ $cookie_name ] );
+				} else {
+					$this->status = 'off';
+				}
+				return;
+			}
+
 			$status_val = sanitize_key( $_REQUEST['sudowp-hooks'] );
 
 			// Only allow specific values
 			if ( in_array( $status_val, array( 'off', 'show-action-hooks', 'show-filter-hooks' ), true ) ) {
-				
+
+				// Ensure COOKIE_DOMAIN is defined
+				$cookie_domain = defined( 'COOKIE_DOMAIN' ) ? COOKIE_DOMAIN : '';
+
 				// Modern setcookie signature (PHP 7.3+) for SameSite support
 				setcookie( $cookie_name, $status_val, array(
 					'expires'  => time() + 3600 * 24 * 30,
 					'path'     => '/',
-					'domain'   => COOKIE_DOMAIN,
+					'domain'   => $cookie_domain,
 					'secure'   => is_ssl(),
 					'httponly' => true,
 					'samesite' => 'Lax',
@@ -138,15 +156,21 @@ class SudoWP_Hooks_Visualizer {
 	 */
 	public function admin_bar_menu( WP_Admin_Bar $wp_admin_bar ): void {
 		$this->detach_hooks();
-		$url = remove_query_arg( 'sudowp-hooks' );
+		$url = remove_query_arg( array( 'sudowp-hooks', 'sudowp-hooks-nonce' ) );
 
 		if ( 'show-action-hooks' === $this->status ) {
 			$title = __( 'Stop Showing Action Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( 'sudowp-hooks', 'off', $url );
+			$href  = add_query_arg( array(
+				'sudowp-hooks'       => 'off',
+				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
+			), $url );
 			$css   = 'sudowp-hooks-on sudowp-hooks-normal';
 		} else {
 			$title = __( 'Show Action Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( 'sudowp-hooks', 'show-action-hooks', $url );
+			$href  = add_query_arg( array(
+				'sudowp-hooks'       => 'show-action-hooks',
+				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
+			), $url );
 			$css   = '';
 		}
 
@@ -167,11 +191,17 @@ class SudoWP_Hooks_Visualizer {
 
 		if ( 'show-filter-hooks' === $this->status ) {
 			$title = __( 'Stop Showing Action & Filter Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( 'sudowp-hooks', 'off', $url );
+			$href  = add_query_arg( array(
+				'sudowp-hooks'       => 'off',
+				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
+			), $url );
 			$css   = 'sudowp-hooks-on sudowp-hooks-sidebar';
 		} else {
 			$title = __( 'Show Action & Filter Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( 'sudowp-hooks', 'show-filter-hooks', $url );
+			$href  = add_query_arg( array(
+				'sudowp-hooks'       => 'show-filter-hooks',
+				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
+			), $url );
 			$css   = '';
 		}
 
@@ -199,8 +229,15 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function notification_switch(): void {
+		// Additional security: Verify user has proper capabilities
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		$this->detach_hooks();
-		$url = add_query_arg( 'sudowp-hooks', 'off' );
+		$url = add_query_arg( array(
+			'sudowp-hooks'       => 'off',
+			'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
+		) );
 		?>
 		<a class="sudowp-notification-switch" href="<?php echo esc_url( $url ); ?>">
 			<span class="sudowp-notification-indicator"></span>
@@ -219,6 +256,9 @@ class SudoWP_Hooks_Visualizer {
 			return;
 		}
 
+		// Add security headers
+		add_action( 'send_headers', array( $this, 'add_security_headers' ) );
+
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_script' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_script' ) );
 		add_action( 'login_enqueue_scripts', array( $this, 'enqueue_script' ) );
@@ -235,8 +275,23 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function enqueue_script(): void {
-		wp_register_style( 'sudowp-hooks-css', plugins_url( 'assets/css/sudowp-hooks-main.css', __FILE__ ), array(), '1.3.1', 'screen' );
+		wp_register_style( 'sudowp-hooks-css', plugins_url( 'assets/css/sudowp-hooks-main.css', __FILE__ ), array(), '1.3.2', 'screen' );
 		wp_enqueue_style( 'sudowp-hooks-css' );
+	}
+
+	/**
+	 * Add security headers for enhanced protection
+	 */
+	public function add_security_headers(): void {
+		// Only add headers when plugin is active for admin users
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// X-Content-Type-Options: Prevent MIME type sniffing
+		if ( ! headers_sent() ) {
+			header( 'X-Content-Type-Options: nosniff' );
+		}
 	}
 
 	public function load_translation(): void {
@@ -244,6 +299,10 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function render_head_hooks(): void {
+		// Additional security: Verify user has proper capabilities
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		$this->render_hooks();
 		$this->doing = 'write';
 	}
@@ -258,6 +317,12 @@ class SudoWP_Hooks_Visualizer {
 
 	public function hook_all_hooks( string $hook ): void {
 		global $wp_actions;
+		
+		// Validate hook name to prevent potential injection
+		if ( empty( $hook ) || ! is_string( $hook ) ) {
+			return;
+		}
+		
 		if ( ! in_array( $hook, $this->recent_hooks, true ) ) {
 			if ( isset( $wp_actions[ $hook ] ) ) {
 				$this->all_hooks[] = array(
@@ -288,6 +353,16 @@ class SudoWP_Hooks_Visualizer {
 
 	public function render_action( array $args = array() ): void {
 		global $wp_filter;
+		
+		// Validate input arguments
+		if ( empty( $args['ID'] ) || ! is_string( $args['ID'] ) ) {
+			return;
+		}
+		
+		if ( empty( $args['type'] ) || ! in_array( $args['type'], array( 'action', 'filter' ), true ) ) {
+			return;
+		}
+		
 		$nested_hooks = ( isset( $wp_filter[ $args['ID'] ] ) ) ? $wp_filter[ $args['ID'] ] : false;
 
 		$nested_hooks_count = 0;
@@ -369,6 +444,10 @@ class SudoWP_Hooks_Visualizer {
 	}
 
 	public function filter_hooks_panel(): void {
+		// Additional security: Verify user has proper capabilities
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		?>
 		<div class="sudowp-nested-hooks-block <?php echo ( 'show-filter-hooks' === $this->status ) ? 'sudowp-active' : ''; ?> ">
 			<?php

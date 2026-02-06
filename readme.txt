@@ -4,7 +4,7 @@ Original Authors: Stuart O'Brien, cxThemes
 Tags: hooks, actions, filters, developer-tool, debug, security-fork, cve-2024-6297
 Requires at least: 5.8
 Tested up to: 6.7
-Stable tag: 1.3.0
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,15 @@ No. This is a standalone fork. You must deactivate and delete the original plugi
 The original plugin is abandoned and compromised. This fork offers the same beloved functionality but with a secure, maintained codebase suitable for modern WordPress sites.
 
 == Changelog ==
+
+= 1.3.2 (February 2026) =
+* Security Fix: Added CSRF protection with WordPress nonces for all state changes.
+* Security Fix: Enhanced authorization checks - all rendering methods now verify manage_options capability.
+* Security Fix: Improved input validation with strict type checking for hook names and arguments.
+* Security Fix: Added X-Content-Type-Options security header to prevent MIME type sniffing.
+* Security Fix: Fixed COOKIE_DOMAIN handling to support environments where it's undefined.
+* Security Enhancement: Improved direct file access prevention.
+* Documentation: Added comprehensive SECURITY.md following OWASP framework.
 
 = 1.3.0 (SudoWP Edition) =
 * Security Fix: Guaranteed clean from CVE-2024-6297 (Supply Chain Attack).
