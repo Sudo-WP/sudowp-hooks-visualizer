@@ -68,4 +68,3 @@ The original plugin is abandoned and compromised. This fork offers the same belo
 * Security Fix: Removed unsafe direct calls and modernized headers.
 * Maintenance: Refactored codebase to use `sudowp-` naming convention.
 * Rebrand: Forked as SudoWP Hooks Visualizer.
-* Rebrand: Forked as SudoWP Hooks Visualizer.

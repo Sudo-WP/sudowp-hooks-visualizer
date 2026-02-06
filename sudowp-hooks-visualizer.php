@@ -114,10 +114,10 @@ class SudoWP_Hooks_Visualizer {
 
 			// Only allow specific values
 			if ( in_array( $status_val, array( 'off', 'show-action-hooks', 'show-filter-hooks' ), true ) ) {
-				
+
 				// Ensure COOKIE_DOMAIN is defined
 				$cookie_domain = defined( 'COOKIE_DOMAIN' ) ? COOKIE_DOMAIN : '';
-				
+
 				// Modern setcookie signature (PHP 7.3+) for SameSite support
 				setcookie( $cookie_name, $status_val, array(
 					'expires'  => time() + 3600 * 24 * 30,
