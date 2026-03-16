@@ -85,7 +85,7 @@ class SudoWP_Hooks_Visualizer {
 		// Securely set status
 		$this->set_active_status();
 
-		$this->attach_hooks();
+		add_action('init', function() { if (current_user_can('manage_options')) { $this->attach_hooks(); } }, 1);
 		add_action( 'init', array( $this, 'plugin_init' ) );
 	}
 
@@ -99,8 +99,18 @@ class SudoWP_Hooks_Visualizer {
 
 		// Check Request (GET/POST) first
 		if ( isset( $_REQUEST['sudowp-hooks'] ) ) {
+			// Capability check: Only admins can toggle hooks
+			if ( ! current_user_can( 'manage_options' ) ) {
+				if ( isset( $_COOKIE[ $cookie_name ] ) ) {
+					$this->status = sanitize_key( $_COOKIE[ $cookie_name ] );
+				} else {
+					$this->status = 'off';
+				}
+				return;
+			}
+
 			// CSRF Protection: Verify nonce if changing status
-			if ( ! isset( $_REQUEST['sudowp-hooks-nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['sudowp-hooks-nonce'] ) ), 'sudowp_hooks_toggle' ) ) {
+			if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'sudowp_hooks_toggle' ) ) {
 				// Invalid nonce - don't change status
 				if ( isset( $_COOKIE[ $cookie_name ] ) ) {
 					$this->status = sanitize_key( $_COOKIE[ $cookie_name ] );
@@ -156,21 +166,15 @@ class SudoWP_Hooks_Visualizer {
 	 */
 	public function admin_bar_menu( WP_Admin_Bar $wp_admin_bar ): void {
 		$this->detach_hooks();
-		$url = remove_query_arg( array( 'sudowp-hooks', 'sudowp-hooks-nonce' ) );
+		$url = remove_query_arg( array( 'sudowp-hooks', '_wpnonce' ) );
 
 		if ( 'show-action-hooks' === $this->status ) {
 			$title = __( 'Stop Showing Action Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( array(
-				'sudowp-hooks'       => 'off',
-				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
-			), $url );
+			$href  = wp_nonce_url( add_query_arg( 'sudowp-hooks', 'off', $url ), 'sudowp_hooks_toggle', '_wpnonce' );
 			$css   = 'sudowp-hooks-on sudowp-hooks-normal';
 		} else {
 			$title = __( 'Show Action Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( array(
-				'sudowp-hooks'       => 'show-action-hooks',
-				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
-			), $url );
+			$href  = wp_nonce_url( add_query_arg( 'sudowp-hooks', 'show-action-hooks', $url ), 'sudowp_hooks_toggle', '_wpnonce' );
 			$css   = '';
 		}
 
@@ -191,17 +195,11 @@ class SudoWP_Hooks_Visualizer {
 
 		if ( 'show-filter-hooks' === $this->status ) {
 			$title = __( 'Stop Showing Action & Filter Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( array(
-				'sudowp-hooks'       => 'off',
-				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
-			), $url );
+			$href  = wp_nonce_url( add_query_arg( 'sudowp-hooks', 'off', $url ), 'sudowp_hooks_toggle', '_wpnonce' );
 			$css   = 'sudowp-hooks-on sudowp-hooks-sidebar';
 		} else {
 			$title = __( 'Show Action & Filter Hooks', 'sudowp-hooks-visualizer' );
-			$href  = add_query_arg( array(
-				'sudowp-hooks'       => 'show-filter-hooks',
-				'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
-			), $url );
+			$href  = wp_nonce_url( add_query_arg( 'sudowp-hooks', 'show-filter-hooks', $url ), 'sudowp_hooks_toggle', '_wpnonce' );
 			$css   = '';
 		}
 
@@ -234,10 +232,7 @@ class SudoWP_Hooks_Visualizer {
 			return;
 		}
 		$this->detach_hooks();
-		$url = add_query_arg( array(
-			'sudowp-hooks'       => 'off',
-			'sudowp-hooks-nonce' => wp_create_nonce( 'sudowp_hooks_toggle' ),
-		) );
+		$url = wp_nonce_url( add_query_arg( 'sudowp-hooks', 'off' ), 'sudowp_hooks_toggle', '_wpnonce' );
 		?>
 		<a class="sudowp-notification-switch" href="<?php echo esc_url( $url ); ?>">
 			<span class="sudowp-notification-indicator"></span>
