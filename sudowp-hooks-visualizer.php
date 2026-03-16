@@ -3,7 +3,7 @@
  * Plugin Name: SudoWP Hooks Visualizer
  * Plugin URI:  https://sudowp.com
  * Description: A secure, developer-focused tool to visualize WordPress Action and Filter hooks in real-time. Maintained by SudoWP.
- * Version:     1.3.2
+ * Version:     1.3.3
  * Author:      SudoWP
  * Author URI:  https://sudowp.com
  * License:     GPLv2 or later
